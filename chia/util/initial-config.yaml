@@ -341,7 +341,7 @@ full_node:
   database_path: db/blockchain_v2_CHALLENGE.sqlite
   # peer_db_path is deprecated and has been replaced by peers_file_path
   peer_db_path: db/peer_table_node.sqlite
-  peers_file_path: db/peers.dat
+  peers_file_path: db/peers_CHALLENGE.dat
   simulator_database_path: sim_db/simulator_blockchain_v1_CHALLENGE.sqlite
   # simulator_peer_db_path is deprecated and has been replaced by simulator_peers_file_path
   simulator_peer_db_path: sim_db/peer_table_node.sqlite
@@ -505,7 +505,7 @@ wallet:
   database_path: wallet/db/blockchain_wallet_v2_CHALLENGE_KEY.sqlite
   # wallet_peers_path is deprecated and has been replaced by wallet_peers_file_path
   wallet_peers_path: wallet/db/wallet_peers.sqlite
-  wallet_peers_file_path: wallet/db/wallet_peers.dat
+  wallet_peers_file_path: wallet/db/wallet_peers_CHALLENGE.dat
 
   logging: *logging
   network_overrides: *network_overrides

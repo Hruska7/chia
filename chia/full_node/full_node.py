@@ -364,7 +364,7 @@ class FullNode:
                     selected_network=network_name,
                     peers_file_path_key="peers_file_path",
                     legacy_peer_db_path_key=PEER_DB_PATH_KEY_DEPRECATED,
-                    default_peers_file_path="db/peers.dat",
+                    default_peers_file_path="db/peers_CHALLENGE.dat",
                 ),
                 self.config["introducer_peer"],
                 dns_servers,

@@ -418,7 +418,7 @@ class WalletNode:
                     selected_network=network_name,
                     peers_file_path_key="wallet_peers_file_path",
                     legacy_peer_db_path_key=WALLET_PEERS_PATH_KEY_DEPRECATED,
-                    default_peers_file_path="wallet/db/wallet_peers.dat",
+                    default_peers_file_path="wallet/db/wallet_peers_CHALLENGE.dat",
                 ),
                 self.config["introducer_peer"],
                 self.config.get("dns_servers", ["dns-introducer.chia.net"]),

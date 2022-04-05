@@ -47,19 +47,25 @@ class PeerStoreResolver:
 
             # Update the config
             self.config[self.peers_file_path_key] = peers_file_path_str
-        return self.root_path / Path(peers_file_path_str)
+        else:
+            if "CHALLENGE" not in peers_file_path_str:
+                path = Path(peers_file_path_str)
+                peers_file_path_str = os.fspath(path.with_name(f"{path.stem}_CHALLENGE{path.suffix}"))
+                # No need to update the config -- we can replace the CHALLENGE string each time through.
+                # This makes the downgrade path cleaner as older clients wouldn't understand the CHALLENGE string.
+        return self.root_path / Path(peers_file_path_str.replace("CHALLENGE", self.selected_network))
 
     @property
     def _peers_file_name(self) -> str:
         """
         Internal property to get the name component of the peers data file path
         """
-        if self.selected_network == "mainnet":
-            return Path(self.default_peers_file_path).name
-        else:
+        if self.selected_network != "mainnet":
             # For testnets, we include the network name in the peers data filename
             path = Path(self.default_peers_file_path)
             return path.with_name(f"{path.stem}_{self.selected_network}{path.suffix}").name
+        else:
+            return Path(self.default_peers_file_path).name
 
     @property
     def peers_file_path(self) -> Path:
