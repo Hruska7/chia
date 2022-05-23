@@ -40,6 +40,10 @@ class TradeManager:
                 {
                     "coin": bytes
                     "parent_spend": bytes
+                    "siblings": List[bytes]  # other coins of the same type being offered
+                    "sibling_spends": List[bytes]  # The parent spends for the siblings
+                    "sibling_puzzles": List[Program]  # The inner puzzles of the siblings (always OFFER_MOD)
+                    "sibling_solutions": List[Program]  # The inner solution of the siblings
                 }
             )
 
@@ -218,7 +222,11 @@ class TradeManager:
 
             if wallet is None:
                 continue
-            new_ph = await wallet.get_new_puzzlehash()
+
+            if wallet.type() == WalletType.NFT:
+                new_ph = await wallet.wallet_state_manager.main_wallet.get_new_puzzlehash()
+            else:
+                new_ph = await wallet.get_new_puzzlehash()
             # This should probably not switch on whether or not we're spending a XCH but it has to for now
             if wallet.type() == WalletType.STANDARD_WALLET:
                 if fee_to_pay > coin.amount:

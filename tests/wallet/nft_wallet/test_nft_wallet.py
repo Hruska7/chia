@@ -1,8 +1,5 @@
 import asyncio
-from secrets import token_bytes
-
-# pytestmark = pytest.mark.skip("TODO: Fix tests")
-from typing import Any, Dict, Optional
+from typing import Any
 
 import pytest
 
@@ -14,13 +11,8 @@ from chia.simulator.simulator_protocol import FarmNewBlockProtocol
 from chia.types.blockchain_format.program import Program
 from chia.types.blockchain_format.sized_bytes import bytes32
 from chia.types.peer_info import PeerInfo
-from chia.util.ints import uint16, uint32, uint64
-from chia.wallet.cat_wallet.cat_wallet import CATWallet
+from chia.util.ints import uint16, uint32
 from chia.wallet.nft_wallet.nft_wallet import NFTWallet
-from chia.wallet.outer_puzzles import create_asset_id, match_puzzle
-from chia.wallet.puzzle_drivers import PuzzleInfo
-from chia.wallet.trading.offer import Offer
-from chia.wallet.trading.trade_status import TradeStatus
 from chia.wallet.util.compute_memos import compute_memos
 from chia.wallet.util.wallet_types import WalletType
 from tests.time_out_assert import time_out_assert, time_out_assert_not_none
