@@ -223,6 +223,7 @@ class NFTWallet:
         singleton_id = bytes32(uncurried_nft.singleton_launcher_id.atom)
         metadata = uncurried_nft.metadata
         new_inner_puzzle = None
+        update_condition = None
         parent_inner_puzhash = uncurried_nft.nft_state_layer.get_tree_hash()
         self.log.debug("Before spend metadata: %s %s \n%s", metadata, singleton_id, disassemble(delegated_puz_solution))
 
@@ -241,16 +242,7 @@ class NFTWallet:
             self.log.debug("Checking condition code: %r", condition_code)
             if condition_code == -24:
                 # metadata update
-                # (-24 (meta updater puzzle) url)
-                metadata_list = list(metadata.as_python())
-                new_metadata = []
-                for metadata_entry in metadata_list:
-                    key = metadata_entry[0]
-                    if key == b"u":
-                        new_metadata.append((b"u", [condition.rest().rest().first().atom] + list(metadata_entry[1:])))
-                    else:
-                        new_metadata.append((b"h", metadata_entry[1]))
-                metadata = Program.to(new_metadata)
+                update_condition = condition
             elif condition_code == 51 and int_from_bytes(condition.rest().rest().first().atom) == 1:
                 puzhash = bytes32(condition.rest().first().atom)
                 memo = bytes32(condition.as_python()[-1][0])
@@ -274,6 +266,8 @@ class NFTWallet:
                 raise ValueError("Invalid condition")
         if new_inner_puzzle is None:
             raise ValueError("Invalid puzzle")
+        if update_condition is not None:
+            metadata = nft_puzzles.update_metadata(metadata, update_condition)
         parent_coin = None
         coin_record = await self.wallet_state_manager.coin_store.get_coin_record(coin_name)
         if coin_record is None:
@@ -290,7 +284,7 @@ class NFTWallet:
         child_puzzle: Program = nft_puzzles.create_full_puzzle(
             singleton_id,
             metadata,
-            bytes32(uncurried_nft.metdata_updater_hash.atom),
+            bytes32(uncurried_nft.metadata_updater_hash.atom),
             new_inner_puzzle,
         )
         self.log.debug(
@@ -364,7 +358,7 @@ class NFTWallet:
         """
         This must be called under the wallet state manager lock
         """
-        amount = 1
+        amount = uint64(1)
         coins = await self.standard_wallet.select_coins(amount)
         if coins is None:
             return None
@@ -536,18 +530,21 @@ class NFTWallet:
         return nft_record
 
     async def update_metadata(
-        self, nft_coin_info: NFTCoinInfo, uri: str, fee: uint64 = uint64(0)
+        self, nft_coin_info: NFTCoinInfo, uris: Dict[str, Optional[str]], fee: uint64 = uint64(0)
     ) -> Optional[SpendBundle]:
         coin = nft_coin_info.coin
-        # we're not changing it
+        additional_uris = []
+        for key, uri in uris.items():
+            if uri is not None:
+                additional_uris.append((key, uri))
 
         uncurried_nft = UncurriedNFT.uncurry(nft_coin_info.full_puzzle)
 
         puzzle_hash = uncurried_nft.inner_puzzle.get_tree_hash()
         condition_list = [make_create_coin_condition(puzzle_hash, coin.amount, [puzzle_hash])]
-        condition_list.append([int_to_bytes(-24), NFT_METADATA_UPDATER, uri.encode("utf-8")])
+        condition_list.append([int_to_bytes(-24), NFT_METADATA_UPDATER, additional_uris])
 
-        self.log.info("Attempting to add a url to NFT coin %s in the metadata: %s", nft_coin_info, uri)
+        self.log.info("Attempting to add urls to NFT coin %s in the metadata: %s", nft_coin_info, additional_uris)
         inner_solution = solution_for_conditions(condition_list)
         nft_tx_record = await self._make_nft_transaction(nft_coin_info, inner_solution, fee)
         await self.standard_wallet.push_transaction(nft_tx_record)

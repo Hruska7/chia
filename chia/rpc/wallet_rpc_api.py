@@ -37,9 +37,10 @@ from chia.wallet.derive_keys import (
     match_address_to_sk,
 )
 from chia.wallet.did_wallet.did_wallet import DIDWallet
+from chia.wallet.nft_wallet import nft_puzzles
 from chia.wallet.nft_wallet.nft_info import NFTInfo
-from chia.wallet.nft_wallet.nft_puzzles import get_nft_info_from_puzzle
 from chia.wallet.nft_wallet.nft_wallet import NFTWallet
+from chia.wallet.nft_wallet.uncurry_nft import UncurriedNFT
 from chia.wallet.outer_puzzles import AssetType
 from chia.wallet.puzzle_drivers import PuzzleInfo
 from chia.wallet.rl_wallet.rl_wallet import RLWallet
@@ -1336,6 +1337,12 @@ class WalletRpcApi:
             [
                 ("u", request["uris"]),
                 ("h", hexstr_to_bytes(request["hash"])),
+                ("mu", request.get("meta_uris", [])),
+                ("mh", hexstr_to_bytes(request.get("meta_hash", "00"))),
+                ("lu", request.get("license_uris", [])),
+                ("lh", hexstr_to_bytes(request.get("license_hash", "00"))),
+                ("sn", uint64(request.get("series_number", 1))),
+                ("st", uint64(request.get("series_total", 1))),
             ]
         )
         fee = uint64(request.get("fee", 0))
@@ -1349,7 +1356,7 @@ class WalletRpcApi:
         nfts = nft_wallet.get_current_nfts()
         nft_info_list = []
         for nft in nfts:
-            nft_info_list.append(get_nft_info_from_puzzle(nft.full_puzzle, nft.coin))
+            nft_info_list.append(nft_puzzles.get_nft_info_from_puzzle(nft.full_puzzle, nft.coin))
         return {"wallet_id": wallet_id, "success": True, "nft_list": nft_info_list}
 
     async def nft_transfer_nft(self, request):
@@ -1391,8 +1398,12 @@ class WalletRpcApi:
                 coin_state_list = await self.service.wallet_state_manager.wallet_node.fetch_children(
                     peer, coin_state.coin.name()
                 )
-                if len(coin_state_list) != 1:
-                    raise ValueError("This is not a singleton, multiple children coins found.")
+                odd_coin = 0
+                for coin in coin_state_list:
+                    if coin.coin.amount % 2 == 1:
+                        odd_coin += 1
+                    if odd_coin > 1:
+                        raise ValueError("This is not a singleton, multiple children coins found.")
                 coin_state = coin_state_list[0]
         # Get parent coin
         parent_coin_state_list: List[CoinState] = await self.service.wallet_state_manager.wallet_node.get_coin_state(
@@ -1406,9 +1417,28 @@ class WalletRpcApi:
         )
         # convert to NFTInfo
         try:
-            nft_info: NFTInfo = get_nft_info_from_puzzle(
-                Program.from_bytes(bytes(coin_spend.puzzle_reveal)), parent_coin_state.coin
-            )
+            # Check if the metadata is updated
+            inner_solution: Program = Program.from_bytes(bytes(coin_spend.solution)).rest().rest().first().first()
+            full_puzzle: Program = Program.from_bytes(bytes(coin_spend.puzzle_reveal))
+            update_condition = None
+            for condition in inner_solution.rest().first().rest().as_iter():
+                if condition.first().as_int() == -24:
+                    update_condition = condition
+                    break
+            if update_condition is not None:
+                uncurried_nft: UncurriedNFT = UncurriedNFT.uncurry(full_puzzle)
+                metadata: Program = uncurried_nft.metadata
+                metadata = nft_puzzles.update_metadata(metadata, update_condition)
+                # Note: This is not the actual unspent NFT full puzzle.
+                # There is no way to rebuild the full puzzle in a different wallet.
+                # But it shouldn't have impact on generating the NFTInfo, since inner_puzzle is not used there.
+                full_puzzle = nft_puzzles.create_full_puzzle(
+                    uncurried_nft.singleton_launcher_id,
+                    metadata,
+                    uncurried_nft.metadata_updater_hash,
+                    uncurried_nft.inner_puzzle,
+                )
+            nft_info: NFTInfo = nft_puzzles.get_nft_info_from_puzzle(full_puzzle, coin_state.coin)
         except Exception as e:
             raise ValueError(f"The coin is not a NFT. {e}")
         else:
@@ -1417,12 +1447,18 @@ class WalletRpcApi:
     async def nft_add_uri(self, request) -> Dict:
         assert self.service.wallet_state_manager is not None
         wallet_id = uint32(request["wallet_id"])
-        uri = request["uri"]
+        # Note metadata updater can only add one uri for each field per spend.
+        # If you want to add multiple uris for one field, you need to spend multiple times.
+        uris = {
+            "u": request.get("uri", None),
+            "mu": request.get("meta_uri", None),
+            "lu": request.get("license_uri", None),
+        }
         nft_wallet: NFTWallet = self.service.wallet_state_manager.wallets[wallet_id]
         try:
             nft_coin_info = nft_wallet.get_nft_coin_by_id(bytes32.from_hexstr(request["nft_coin_id"]))
             fee = uint64(request.get("fee", 0))
-            spend_bundle = await nft_wallet.update_metadata(nft_coin_info, uri, fee=fee)
+            spend_bundle = await nft_wallet.update_metadata(nft_coin_info, uris, fee=fee)
             return {"wallet_id": wallet_id, "success": True, "spend_bundle": spend_bundle}
         except Exception as e:
             log.exception(f"Failed to update NFT metadata: {e}")

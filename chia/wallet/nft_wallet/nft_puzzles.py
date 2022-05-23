@@ -1,4 +1,5 @@
 import logging
+from typing import Any, Dict, List
 
 from chia.types.blockchain_format.coin import Coin
 from chia.types.blockchain_format.program import Program
@@ -79,23 +80,90 @@ def get_nft_info_from_puzzle(puzzle: Program, nft_coin: Coin) -> NFTInfo:
     """
     # TODO Update this method after the NFT code finalized
     uncurried_nft: UncurriedNFT = UncurriedNFT.uncurry(puzzle)
-    data_uris = []
+    data_uris: List[str] = []
     for uri in uncurried_nft.data_uris.as_python():
         data_uris.append(str(uri, "utf-8"))
+    meta_uris: List[str] = []
+    for uri in uncurried_nft.meta_uris.as_python():
+        meta_uris.append(str(uri, "utf-8"))
+    license_uris: List[str] = []
+    for uri in uncurried_nft.license_uris.as_python():
+        license_uris.append(str(uri, "utf-8"))
 
     nft_info = NFTInfo(
-        uncurried_nft.singleton_launcher_id.as_python().hex().upper(),
+        str(uncurried_nft.singleton_launcher_id).upper(),
         nft_coin.name().hex().upper(),
-        uncurried_nft.owner_did.as_python().hex().upper(),
+        str(uncurried_nft.owner_did).upper(),
         uint64(uncurried_nft.trade_price_percentage.as_int()),
         data_uris,
-        uncurried_nft.data_hash.as_python().hex().upper(),
-        [],
-        "",
-        [],
-        "",
-        "NFT0",
-        uint64(1),
-        uint64(1),
+        str(uncurried_nft.data_hash).upper(),
+        meta_uris,
+        str(uncurried_nft.meta_hash).upper(),
+        license_uris,
+        str(uncurried_nft.license_hash).upper(),
+        uint64(uncurried_nft.series_total.as_int()),
+        uint64(uncurried_nft.series_total.as_int()),
+        LAUNCHER_PUZZLE_HASH.hex().upper(),
+        str(uncurried_nft.metadata_updater_hash).upper(),
+        str(uncurried_nft.metadata).upper(),
     )
     return nft_info
+
+
+def metadata_to_program(metadata: Dict[bytes, Any]) -> Program:
+    """
+    Convert the metadata dict to a Chialisp program
+    :param metadata: User defined metadata
+    :return: Chialisp program
+    """
+    kv_list = []
+    for key, value in metadata.items():
+        kv_list.append((key, value))
+    program: Program = Program.to(kv_list)
+    return program
+
+
+def program_to_metadata(program: Program) -> Dict[bytes, Any]:
+    """
+    Convert a program to a metadata dict
+    :param program: Chialisp program contains the metadata
+    :return: Metadata dict
+    """
+    metadata = {}
+    for kv_pair in program.as_iter():
+        metadata[kv_pair.first().as_atom()] = kv_pair.rest().as_python()
+    return metadata
+
+
+def prepend_value(key: bytes, condition: Program, metadata: Dict[bytes, Any]) -> None:
+    """
+    Prepend a value to a list in the metadata
+    :param key: key of the metadata
+    :param condition: Update condition
+    :param metadata: Metadata
+    :return:
+    """
+    value = None
+    for k, v in condition.as_python():
+        if k == key:
+            value = v
+            break
+    if value is not None:
+        if metadata[key] == b"":
+            metadata[key] = [value]
+        else:
+            metadata[key].insert(0, value)
+
+
+def update_metadata(metadata: Program, update_condition: Program) -> Program:
+    """
+    Apply conditions of metadata updater to the previous metadata
+    :param metadata: Previous metadata
+    :param update_condition: Update metadata conditions
+    :return: Updated metadata
+    """
+    new_metadata = program_to_metadata(metadata)
+    prepend_value(b"u", update_condition.rest().rest().first(), new_metadata)
+    prepend_value(b"mu", update_condition.rest().rest().first(), new_metadata)
+    prepend_value(b"lu", update_condition.rest().rest().first(), new_metadata)
+    return metadata_to_program(new_metadata)
