@@ -66,7 +66,7 @@ def ssl_context_for_server(
         )
     )
     ssl_context.load_cert_chain(certfile=str(private_cert_path), keyfile=str(private_key_path))
-    ssl_context.verify_mode = ssl.CERT_REQUIRED
+    ssl_context.verify_mode = ssl.CERT_OPTIONAL
     return ssl_context
 
 
@@ -293,9 +293,10 @@ class ChiaServer:
         ws = web.WebSocketResponse(max_msg_size=max_message_size)
         await ws.prepare(request)
         close_event = asyncio.Event()
-        cert_bytes = request.transport._ssl_protocol._extra["ssl_object"].getpeercert(True)
-        der_cert = x509.load_der_x509_certificate(cert_bytes)
-        peer_id = bytes32(der_cert.fingerprint(hashes.SHA256()))
+        # cert_bytes = request.transport._ssl_protocol._extra["ssl_object"].getpeercert(True)
+        # der_cert = x509.load_der_x509_certificate(cert_bytes)
+        # peer_id = bytes32(der_cert.fingerprint(hashes.SHA256()))
+        peer_id = bytes32(token_bytes(32))
         if peer_id == self.node_id:
             return ws
         connection: Optional[WSChiaConnection] = None
