@@ -1,11 +1,48 @@
 # $env:path should contain a path to editbin.exe and signtool.exe
 
+# Define a -i/-installerVersion option to set/override CHIA_INSTALLER_VERSION
+param (
+  [Parameter(Mandatory=$false, Position=0)]
+  [Alias('i')]
+  [string]$installerVersion
+)
+
 $ErrorActionPreference = "Stop"
 
-mkdir build_scripts\win_build
+if (-not (Get-Command editbin.exe -ErrorAction SilentlyContinue)) {
+  Write-Output "WARNING: editbin.exe not found! Will not be able to finish building the installer..."
+}
+
+if (-not (Test-Path "..\build_scripts\win_build")) {
+  mkdir build_scripts\win_build
+}
 
 git status
 git submodule
+
+Write-Output "The installer version is $installerVersion"
+
+# If $installerVersion is specified, set CHIA_INSTALLER_VERSION to $installerVersion
+if ($installerVersion) {
+  Write-Output ' have installerVersion'
+  $env:CHIA_INSTALLER_VERSION = $installerVersion
+}
+
+if (-not (Test-Path "..\madmax\chia_plot.exe") -or -not (Test-Path "..\madmax\chia_plot_k34.exe")) {
+  Write-Output "WARNING: madmax binaries not found. Will attempt to fetch latest release"
+  Remove-Item "..\madmax" -Recurse -ErrorAction SilentlyContinue
+  mkdir "..\madmax"
+  .\FetchLatestRelease.ps1 -u "https://api.github.com/repos/Chia-Network/chia-plotter-madmax/releases/latest" -p "chia_plot-*.exe", "chia_plot_k34-*.exe" -o "..\madmax\chia_plot.exe", "..\madmax\chia_plot_k34.exe"
+}
+
+if (-not (Test-Path "..\bladebit\bladebit.exe")) {
+  Write-Output "WARNING: bladebit binary not found. Will attempt to fetch latest release"
+  Remove-Item "..\bladebit" -Recurse -ErrorAction SilentlyContinue
+  mkdir "..\bladebit"
+  .\FetchLatestRelease.ps1 -u "https://api.github.com/repos/Chia-Network/bladebit/releases/latest" -p "*windows-x86-64.zip" -o bladebit.zip
+  Write-Output "Unzipping archive..."
+  Expand-Archive -Path ".\bladebit.zip" -DestinationPath "..\bladebit"
+}
 
 if (-not (Test-Path env:CHIA_INSTALLER_VERSION)) {
   $env:CHIA_INSTALLER_VERSION = '0.0.0'
