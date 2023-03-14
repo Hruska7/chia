@@ -13,15 +13,12 @@ param (
   [String[]]$outputs
 )
 
-# Set the URL of the GitHub API endpoint
-$apiUrl = $releaseUrl
-
 # Make a GET request to the API endpoint and parse the response as JSON
-$response = Invoke-RestMethod -Uri $apiUrl 
+$response = Invoke-RestMethod -Uri $releaseUrl
 
 # Extract the version number from the response and output it
 $version = $response.tag_name
-Write-Output "The latest version of release $releaseUrl is $version"
+Write-Output "The latest version is $version for release $releaseUrl"
 
 # Fetch each requested package identified by its pattern and download it
 for ($i = 0; $i -lt $patterns.Length; $i++) {
