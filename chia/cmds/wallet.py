@@ -857,7 +857,7 @@ def did_message_spend_cmd(
     is_flag=True,
     default=False,
 )
-def did_trasnfer_did(
+def did_transfer_did(
     wallet_rpc_port: Optional[int],
     fingerprint: int,
     id: int,
