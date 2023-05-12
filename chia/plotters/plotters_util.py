@@ -80,18 +80,11 @@ async def run_plotter(root_path, plotter, args, progress_dict):
                 log_file.write(err_str)
 
         try:
-            await asyncio.wait(
-                [
-                    _read_stream(
-                        process.stdout,
-                        process_stdout_line,
-                    ),
-                    _read_stream(
-                        process.stderr,
-                        process_stderr_line,
-                    ),
-                ]
-            )
+
+            await asyncio.wait([
+                asyncio.create_task(_read_stream(process.stdout, process_stdout_line)),
+                asyncio.create_task(_read_stream(process.stderr, process_stderr_line)),
+            ])
 
             await process.wait()
         except Exception as e:
