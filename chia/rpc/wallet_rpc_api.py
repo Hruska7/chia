@@ -1428,6 +1428,7 @@ class WalletRpcApi:
         except ValueError:
             entity_id = bytes32.fromhex(request["id"])
         selected_wallet: Optional[WalletProtocol] = None
+        additional_dict_entries: Optional[Dict[str, Any]] = None
         is_hex = request.get("is_hex", False)
         if isinstance(is_hex, str):
             is_hex = bool(is_hex)
@@ -1481,15 +1482,24 @@ class WalletRpcApi:
                         pubkey = synthetic_pk
                         signature = AugSchemeMPL.sign(synthetic_secret_key, puzzle.get_tree_hash())
                         latest_coin_id = vc_record.vc.coin.name()
+
+                        additional_dict_entries = {
+                            "launcher_id": vc_record.vc.launcher_id.hex(),
+                        }
                         break
 
-        return {
+        response = {
             "success": True,
             "pubkey": str(pubkey),
             "signature": str(signature),
             "latest_coin_id": latest_coin_id.hex() if latest_coin_id is not None else None,
             "signing_mode": SigningMode.CHIP_0002.value,
         }
+
+        if additional_dict_entries is not None:
+            response.update(additional_dict_entries)
+
+        return response
 
     ##########################################################################################
     # CATs and Trading
