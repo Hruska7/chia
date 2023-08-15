@@ -1479,9 +1479,11 @@ class WalletRpcApi:
                         pubkey = synthetic_pk
                         signature = AugSchemeMPL.sign(synthetic_secret_key, puzzle.get_tree_hash())
                         latest_coin_id = vc_record.vc.coin.name()
+                        address = encode_puzzle_hash(vc_record.vc.inner_puzzle_hash, AddressType.XCH.hrp(self.service.config))
 
                         additional_dict_entries = {
                             "launcher_id": vc_record.vc.launcher_id.hex(),
+                            "address": address,
                         }
                         break
 
