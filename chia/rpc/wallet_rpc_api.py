@@ -66,7 +66,11 @@ from chia.wallet.outer_puzzles import AssetType
 from chia.wallet.payment import Payment
 from chia.wallet.puzzle_drivers import PuzzleInfo, Solver
 from chia.wallet.puzzles.clawback.metadata import AutoClaimSettings, ClawbackMetadata
-from chia.wallet.puzzles.p2_delegated_puzzle_or_hidden_puzzle import puzzle_hash_for_synthetic_public_key, DEFAULT_HIDDEN_PUZZLE_HASH, calculate_synthetic_secret_key, puzzle_for_pk
+from chia.wallet.puzzles.p2_delegated_puzzle_or_hidden_puzzle import (
+    DEFAULT_HIDDEN_PUZZLE_HASH,
+    calculate_synthetic_secret_key,
+    puzzle_hash_for_synthetic_public_key,
+)
 from chia.wallet.singleton import create_singleton_puzzle
 from chia.wallet.trade_record import TradeRecord
 from chia.wallet.trading.offer import Offer
@@ -1422,7 +1426,7 @@ class WalletRpcApi:
         try:
             entity_id: bytes32 = decode_puzzle_hash(request["id"])
         except ValueError:
-            entity_id: bytes32 = bytes32.fromhex(request["id"])
+            entity_id = bytes32.fromhex(request["id"])
         selected_wallet: Optional[WalletProtocol] = None
         is_hex = request.get("is_hex", False)
         if isinstance(is_hex, str):
@@ -1463,11 +1467,15 @@ class WalletRpcApi:
                     vc_record: Optional[VCRecord] = await wallet.get_vc_record_for_launcher_id(entity_id)
                     if vc_record is not None:
                         selected_wallet = wallet
-                        private = await self.service.wallet_state_manager.get_private_key(vc_record.vc.inner_puzzle_hash)
+                        private = await self.service.wallet_state_manager.get_private_key(
+                            vc_record.vc.inner_puzzle_hash
+                        )
                         synthetic_secret_key = calculate_synthetic_secret_key(private, DEFAULT_HIDDEN_PUZZLE_HASH)
                         synthetic_pk = synthetic_secret_key.get_g1()
                         if is_hex:
-                            puzzle: Program = Program.to((CHIP_0002_SIGN_MESSAGE_PREFIX, bytes.fromhex(request["message"])))
+                            puzzle: Program = Program.to(
+                                (CHIP_0002_SIGN_MESSAGE_PREFIX, bytes.fromhex(request["message"]))
+                            )
                         else:
                             puzzle = Program.to((CHIP_0002_SIGN_MESSAGE_PREFIX, request["message"]))
                         pubkey = synthetic_pk
