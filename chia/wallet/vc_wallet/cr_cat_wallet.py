@@ -675,6 +675,8 @@ class CRCATWallet(CATWallet):
             unsigned_spend_bundle.coin_spends
         )
 
+        other_tx_removals: Set[Coin] = set(removal for tx in other_txs for removal in tx.removals)
+        other_tx_additions: Set[Coin] = set(removal for tx in other_txs for removal in tx.additions)
         tx_list = [
             TransactionRecord(
                 confirmed_at_height=uint32(0),
@@ -685,8 +687,8 @@ class CRCATWallet(CATWallet):
                 confirmed=False,
                 sent=uint32(0),
                 spend_bundle=signed_spend_bundle if i == 0 else None,
-                additions=signed_spend_bundle.additions() if i == 0 else [],
-                removals=signed_spend_bundle.removals() if i == 0 else [],
+                additions=list(set(signed_spend_bundle.additions()) - other_tx_additions) if i == 0 else [],
+                removals=list(set(signed_spend_bundle.removals()) - other_tx_removals) if i == 0 else [],
                 wallet_id=self.id(),
                 sent_to=[],
                 trade_id=None,
@@ -803,6 +805,12 @@ class CRCATWallet(CATWallet):
             [claim_bundle, *(tx.spend_bundle for tx in vc_txs if tx.spend_bundle is not None)]
         )
 
+        other_txs: List[TransactionRecord] = [
+            *(dataclasses.replace(tx, spend_bundle=None) for tx in vc_txs),
+            *((dataclasses.replace(chia_tx, spend_bundle=None),) if chia_tx is not None else []),
+        ]
+        other_additions: Set[Coin] = set(rem for tx in other_txs for rem in tx.additions)
+        other_removals: Set[Coin] = set(rem for tx in other_txs for rem in tx.removals)
         return [
             TransactionRecord(
                 confirmed_at_height=uint32(0),
@@ -813,8 +821,8 @@ class CRCATWallet(CATWallet):
                 confirmed=False,
                 sent=uint32(0),
                 spend_bundle=claim_bundle,
-                additions=claim_bundle.additions(),
-                removals=claim_bundle.removals(),
+                additions=list(set(claim_bundle.additions()) - other_additions),
+                removals=list(set(claim_bundle.removals()) - other_removals),
                 wallet_id=self.id(),
                 sent_to=[],
                 trade_id=None,
@@ -822,8 +830,7 @@ class CRCATWallet(CATWallet):
                 name=claim_bundle.name(),
                 memos=list(compute_memos(claim_bundle).items()),
             ),
-            *(dataclasses.replace(tx, spend_bundle=None) for tx in vc_txs),
-            *((dataclasses.replace(chia_tx, spend_bundle=None),) if chia_tx is not None else []),
+            *other_txs,
         ]
 
     async def match_puzzle_info(self, puzzle_driver: PuzzleInfo) -> bool:
