@@ -860,7 +860,7 @@ class DIDWallet:
             memos=list(compute_memos(spend_bundle).items()),
             valid_times=ConditionValidTimes(),
         )
-        await self.wallet_state_manager.add_pending_transaction(did_record)
+        await self.wallet_state_manager.add_pending_transactions([did_record])
         return spend_bundle
 
     # Pushes a SpendBundle to create a message coin on the blockchain
@@ -1070,7 +1070,7 @@ class DIDWallet:
             memos=list(compute_memos(spend_bundle).items()),
             valid_times=ConditionValidTimes(),
         )
-        await self.wallet_state_manager.add_pending_transaction(did_record)
+        await self.wallet_state_manager.add_pending_transactions([did_record])
         new_did_info = DIDInfo(
             self.did_info.origin_coin,
             self.did_info.backup_ids,
@@ -1313,8 +1313,7 @@ class DIDWallet:
             valid_times=ConditionValidTimes(),
         )
         regular_record = dataclasses.replace(tx_record, spend_bundle=None)
-        await self.wallet_state_manager.add_pending_transaction(regular_record)
-        await self.wallet_state_manager.add_pending_transaction(did_record)
+        await self.wallet_state_manager.add_pending_transactions([regular_record, did_record])
         return full_spend
 
     async def generate_eve_spend(
