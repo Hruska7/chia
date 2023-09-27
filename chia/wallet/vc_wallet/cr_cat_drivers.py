@@ -21,12 +21,13 @@ from chia.wallet.payment import Payment
 from chia.wallet.puzzles.load_clvm import load_clvm_maybe_recompile
 from chia.wallet.puzzles.singleton_top_layer_v1_1 import SINGLETON_LAUNCHER_HASH, SINGLETON_MOD_HASH
 from chia.wallet.uncurried_puzzle import UncurriedPuzzle, uncurry_puzzle
+from chia.wallet.util.curry_and_treehash import curry_and_treehash
 from chia.wallet.vc_wallet.vc_drivers import (
     COVENANT_LAYER_HASH,
     EML_TP_COVENANT_ADAPTER_HASH,
     EXTIGENT_METADATA_LAYER_HASH,
-    GUARANTEED_NIL_TP,
-    P2_ANNOUNCED_DELEGATED_PUZZLE,
+    GUARANTEED_NIL_TP_HASH,
+    P2_ANNOUNCED_DELEGATED_PUZZLE_HASH,
     create_did_tp,
     create_eml_covenant_morpher,
 )
@@ -62,16 +63,13 @@ CREDENTIAL_STRUCT: Program = Program.to(
             ),
         ),
         (
-            Program.to(EXTIGENT_METADATA_LAYER_HASH)
-            .curry(
+            curry_and_treehash(
+                Program.to((1, EXTIGENT_METADATA_LAYER_HASH)).get_tree_hash_precalc(EXTIGENT_METADATA_LAYER_HASH),
                 Program.to(EXTIGENT_METADATA_LAYER_HASH).get_tree_hash(),
-                Program.to(None),
-                GUARANTEED_NIL_TP,
-                GUARANTEED_NIL_TP.get_tree_hash(),
-                P2_ANNOUNCED_DELEGATED_PUZZLE,
-            )
-            .get_tree_hash_precalc(
-                EXTIGENT_METADATA_LAYER_HASH, Program.to(EXTIGENT_METADATA_LAYER_HASH).get_tree_hash()
+                Program.to(None).get_tree_hash(),
+                GUARANTEED_NIL_TP_HASH,
+                Program.to(GUARANTEED_NIL_TP_HASH).get_tree_hash(),
+                P2_ANNOUNCED_DELEGATED_PUZZLE_HASH,
             ),
             (
                 Program.to(
@@ -113,22 +111,17 @@ def construct_cr_layer_hash(
     proofs_checker_hash: bytes32,
     inner_puzzle_hash: bytes32,
 ) -> bytes32:
-    first_curry_hash: bytes32 = (
-        Program.to(CREDENTIAL_RESTRICTION_HASH)
-        .curry(
-            CREDENTIAL_STRUCT_HASH,
-            authorized_providers_hash,
-            proofs_checker_hash,
-        )
-        .get_tree_hash_precalc(
-            CREDENTIAL_RESTRICTION_HASH, CREDENTIAL_STRUCT_HASH, authorized_providers_hash, proofs_checker_hash
-        )
+    first_curry_hash: bytes32 = curry_and_treehash(
+        Program.to((1, CREDENTIAL_RESTRICTION_HASH)).get_tree_hash_precalc(CREDENTIAL_RESTRICTION_HASH),
+        CREDENTIAL_STRUCT_HASH,
+        authorized_providers_hash,
+        proofs_checker_hash,
     )
     first_curry_hash_hash: bytes32 = Program.to(first_curry_hash).get_tree_hash()
-    final_hash: bytes32 = (
-        Program.to(first_curry_hash)
-        .curry(first_curry_hash_hash, inner_puzzle_hash)
-        .get_tree_hash_precalc(first_curry_hash, first_curry_hash_hash, inner_puzzle_hash)
+    final_hash: bytes32 = curry_and_treehash(
+        Program.to((1, first_curry_hash)).get_tree_hash_precalc(first_curry_hash),
+        first_curry_hash_hash,
+        inner_puzzle_hash,
     )
     return final_hash
 
