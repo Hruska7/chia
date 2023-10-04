@@ -14,7 +14,7 @@ from chia.rpc.wallet_rpc_client import WalletRpcClient
 from chia.simulator.full_node_simulator import FullNodeSimulator
 from chia.simulator.setup_nodes import setup_simulators_and_wallets_service
 from chia.types.peer_info import PeerInfo
-from chia.util.ints import uint16, uint32, uint64, uint128
+from chia.util.ints import uint32, uint64, uint128
 from chia.wallet.derivation_record import DerivationRecord
 from chia.wallet.transaction_record import TransactionRecord
 from chia.wallet.util.tx_config import DEFAULT_TX_CONFIG, TXConfig
@@ -275,7 +275,7 @@ class WalletTestFramework:
         for i, (env, txs) in enumerate(zip(self.environments, pending_txs)):
             try:
                 await self.full_node.check_transactions_confirmed(env.wallet_state_manager, txs)
-            except TimeoutError:
+            except TimeoutError:  # pragma: no cover
                 unconfirmed: List[TransactionRecord] = await env.wallet_state_manager.tx_store.get_all_unconfirmed()
                 raise TimeoutError(
                     f"ENV-{i} TXs not confirmed: {[tx.to_json_dict() for tx in unconfirmed if tx in txs]}"
@@ -319,7 +319,7 @@ async def wallet_environments(
     assert len(request.param["blocks_needed"]) == request.param["num_environments"]
     if "config_overrides" in request.param:
         config_overrides: Dict[str, Any] = request.param["config_overrides"]
-    else:
+    else:  # pragma: no cover
         config_overrides = {}
     async with setup_simulators_and_wallets_service(
         1, request.param["num_environments"], blockchain_constants
@@ -340,7 +340,7 @@ async def wallet_environments(
                 }
                 service._node.wallet_state_manager.config = service._node.config
                 await service._node.server.start_client(
-                    PeerInfo(bt.config["self_hostname"], uint16(full_node[0]._api.full_node.server._port)), None
+                    PeerInfo(bt.config["self_hostname"], full_node[0]._api.full_node.server.get_port()), None
                 )
                 rpc_clients.append(
                     await astack.enter_async_context(

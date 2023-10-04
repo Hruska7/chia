@@ -48,6 +48,7 @@ async def test_basic_functionality(wallet_environments: WalletTestFramework) -> 
             "config_overrides": {},
             "blocks_needed": [1],
             "trusted": True,
+            "reuse_puzhash": True,
         },
     ],
     indirect=True,
@@ -78,6 +79,44 @@ async def test_balance_checking(
         "xch": 1,
         "cat": 2,
     }
+    with pytest.raises(ValueError, match="Error before block was farmed"):
+        await wallet_environments.process_pending_states([WalletStateTransition()])
+
+    with pytest.raises(ValueError, match="Error after block was farmed"):
+        await wallet_environments.process_pending_states(
+            [
+                WalletStateTransition(
+                    pre_block_balance_updates={
+                        "xch": {
+                            "confirmed_wallet_balance": 2_000_000_000_000,
+                            "unconfirmed_wallet_balance": 2_000_000_000_000,
+                            "spendable_balance": 2_000_000_000_000,
+                            "max_send_amount": 2_000_000_000_000,
+                            "unspent_coin_count": 2,
+                        }
+                    },
+                    post_block_balance_updates={
+                        "xch": {
+                            "confirmed_wallet_balance": 13,
+                        }
+                    },
+                )
+            ]
+        )
+
+    # this is necessary to undo the changes made before raising above
+    await env_0.change_balances(
+        {
+            "xch": {
+                "confirmed_wallet_balance": -2_000_000_000_013,
+                "unconfirmed_wallet_balance": -2_000_000_000_000,
+                "spendable_balance": -2_000_000_000_000,
+                "max_send_amount": -2_000_000_000_000,
+                "unspent_coin_count": -2,
+            }
+        }
+    )
+
     await wallet_environments.process_pending_states(
         [
             WalletStateTransition(
@@ -137,6 +176,8 @@ async def test_balance_checking(
 
     # Test override
     await env_0.check_balances(additional_balance_info={"cat": {"confirmed_wallet_balance": 0}})
+    with pytest.raises(BalanceCheckingError, match="not in balance response"):
+        await env_0.check_balances(additional_balance_info={"xch": {"something not there": 0}})
 
     await env_0.change_balances({"cat": {"init": True, "set_remainder": True}})
     await env_0.check_balances()
@@ -152,7 +193,6 @@ async def test_balance_checking(
                 }
             }
         )
-        await env_0.check_balances()
 
     with pytest.raises(ValueError, match=r"\+ 2000000000000"):
         await env_0.change_balances(
