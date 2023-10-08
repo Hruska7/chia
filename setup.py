@@ -69,7 +69,7 @@ dev_dependencies = [
     "types-aiofiles==23.1.0.5",
     "types-cryptography==3.3.23.2",
     "types-pkg_resources==0.1.3",
-    "types-pyyaml==6.0.12.11",
+    "types-pyyaml==6.0.12.12",
     "types-setuptools==68.0.0.3",
 ]
 
